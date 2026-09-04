@@ -56,6 +56,22 @@ There is no login. Access is "you know the URL", optionally plus a shared PIN. F
 
 Session cookies are marked secure in production, so it must be served over HTTPS. Railway does that by default.
 
+### Behind a TLS-terminating proxy
+
+Railway (like most hosts) terminates TLS at its edge and forwards plain HTTP to the container. Laravel builds URLs from the scheme it can see, so without trusting that proxy every generated URL comes out `http://` on an `https://` page. The browser then blocks the stylesheet as mixed content, and - less obviously - the PWA manifest's `start_url` and the service worker registration are `http://` too, so the app will not install to a home screen.
+
+The fix is one line in `bootstrap/app.php`:
+
+```php
+$middleware->trustProxies(at: '*');
+```
+
+Laravel then reads `X-Forwarded-Proto` and gets the scheme right for assets, the manifest, redirects and secure cookies. `URL::forceScheme('https')` would fix the stylesheet and quietly leave the rest wrong.
+
+Trusting `*` is safe here because the container is only reachable through Railway's proxy. On a host where that is not true, name the proxy addresses instead.
+
+`tests/Feature/HttpsBehindProxyTest.php` guards this: it asserts no `http://` appears in the page and that the manifest's `start_url` is `https://`. Both tests fail if the line above is removed.
+
 ## Adding to home screen
 
 - **Android/Chrome:** menu, then "Add to Home screen" or "Install app".
