@@ -12,7 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Railway (like most PaaS) terminates TLS at its edge proxy and
+        // forwards plain HTTP to the container. Without trusting that proxy
+        // Laravel builds every URL from the scheme it can see - http - so
+        // the stylesheet is blocked as mixed content and the PWA manifest's
+        // start_url is unusable. Trusting '*' is safe here precisely because
+        // the container is only reachable through that proxy.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
